@@ -1,8 +1,8 @@
 #include "../vendor/zmq.hpp"
 
+#include <zmq_helpers.h>
+
 #include <iostream>
-#include <cstdio>
-#include <cstdlib>
 #include <thread>
 #include <chrono>
 
@@ -62,66 +62,50 @@ class server
 };
 
 int main() {
-  // We need two threads. One which periodically requests data from each of the servers.
-  // Another, the sink, which aggregates replies from the respective servers into a master JSON object.
+  // Set up the ventilator thread. This thread is responsible for periodically requesting
+  // data from each of the monitored nodes.
 
-  // First thread, which periodically requests some data.
   std::thread ventilator([]() {
+    std::cout << "Ventilator: Starting thread.\n";
+
     zmq::context_t context(1);
     zmq::socket_t vent(context, ZMQ_PUSH);
-
-    // WHY DO WE BIND. We are sending data, it's not a server socket.
     vent.connect("tcp://localhost:5555");
 
-    std::cout << "Ventilator setup.\n";
+    std::cout << "Ventilator: Connected to localhost:5555\n";
 
     zmq::message_t message(5);
     memcpy(message.data(), "hello", 5);
 
     while (true) {
       std::cout << "Ventilator: Sending out requests...\n";
+
       vent.send(message);
-      std::this_thread::sleep_for(std::chrono::seconds(15));
+
+      std::this_thread::sleep_for(std::chrono::seconds(2));
     }
   });
 
   std::thread sink([]() {
+    std::cout << "Sink: Starting thread.\n";
+
     zmq::context_t context(1);
-
-    // ZMQ_PULL is used for downstream nodes to pull data.
     zmq::socket_t receiver(context, ZMQ_PULL);
-
-    // This socket listens on a port, thus we must bind and not connect().
     receiver.connect("tcp://localhost:5556");
+
+    std::cout << "Sink: Connected to localhost:5556\n";
 
     zmq::message_t reply;
 
-    std::cout << "Sink initialized, waiting for messages from servers...\n";
+    std::cout << "Sink: Waiting for messages from servers...\n";
 
     while (true) {
       receiver.recv(&reply);
+
       std::cout << "We received a message from a server!\n";
     }
   });
 
   ventilator.join();
   sink.join();
-//
-//  zmq::message_t message(5);
-//  memcpy(message.data(), "hello", 5);
-//
-//  while (true) {
-//    std::cout << "Press enter to send the next request\n";
-//    getchar();
-//
-//    std::cout << "Sending '" << (char *) message.data() << "' to server\n";
-//
-//    sender.send(message);
-//
-//    // Wait for the reply
-//    std::cout << "Waiting for the json reply...\n";
-//    zmq::message_t reply;
-//    sender.recv(&reply);
-//    std::cout << "Received something back from server!\n";
-//  }
 }
