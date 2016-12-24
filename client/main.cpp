@@ -3,6 +3,8 @@
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
+#include <thread>
+#include <chrono>
 
 class server
 {
@@ -60,14 +62,50 @@ class server
 };
 
 int main() {
+  // We need two threads. One which periodically requests data from each of the servers.
+  // Another, the sink, which aggregates replies from the respective servers into a master JSON object.
 
-  server server("tcp://localhost:5555");
-  bool connect = server.connect();
+  // First thread, which periodically requests some data.
+  std::thread ventilator([]() {
+    zmq::context_t context(1);
+    zmq::socket_t vent(context, ZMQ_PUSH);
 
-  std::string reply;
-  server.communicate("hey man", reply);
+    // WHY DO WE BIND. We are sending data, it's not a server socket.
+    vent.connect("tcp://localhost:5555");
 
-  return 0;
+    std::cout << "Ventilator setup.\n";
+
+    zmq::message_t message(5);
+    memcpy(message.data(), "hello", 5);
+
+    while (true) {
+      std::cout << "Ventilator: Sending out requests...\n";
+      vent.send(message);
+      std::this_thread::sleep_for(std::chrono::seconds(15));
+    }
+  });
+
+  std::thread sink([]() {
+    zmq::context_t context(1);
+
+    // ZMQ_PULL is used for downstream nodes to pull data.
+    zmq::socket_t receiver(context, ZMQ_PULL);
+
+    // This socket listens on a port, thus we must bind and not connect().
+    receiver.connect("tcp://localhost:5556");
+
+    zmq::message_t reply;
+
+    std::cout << "Sink initialized, waiting for messages from servers...\n";
+
+    while (true) {
+      receiver.recv(&reply);
+      std::cout << "We received a message from a server!\n";
+    }
+  });
+
+  ventilator.join();
+  sink.join();
 //
 //  zmq::message_t message(5);
 //  memcpy(message.data(), "hello", 5);
