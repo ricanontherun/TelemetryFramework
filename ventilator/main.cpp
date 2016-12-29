@@ -66,19 +66,19 @@ int main() {
   // data from each of the monitored nodes.
 
   std::thread ventilator([]() {
-    std::cout << "Ventilator: Starting thread.\n";
-
     zmq::context_t context(1);
     zmq::socket_t vent(context, ZMQ_PUSH);
     vent.connect("tcp://localhost:5555");
 
-    std::cout << "Ventilator: Connected to localhost:5555\n";
-
-    zmq::message_t message(5);
-    memcpy(message.data(), "hello", 5);
+    std::string message_str;
+    zmq::message_t message;
 
     while (true) {
-      std::cout << "Ventilator: Sending out requests...\n";
+      std::cout << "Message: ";
+      std::cin >> message_str;
+
+      message.rebuild(message_str.length());
+      memcpy(message.data(), message_str.c_str(), message_str.length());
 
       vent.send(message);
 
@@ -87,22 +87,14 @@ int main() {
   });
 
   std::thread sink([]() {
-    std::cout << "Sink: Starting thread.\n";
-
     zmq::context_t context(1);
     zmq::socket_t receiver(context, ZMQ_PULL);
     receiver.connect("tcp://localhost:5556");
 
-    std::cout << "Sink: Connected to localhost:5556\n";
-
     zmq::message_t reply;
-
-    std::cout << "Sink: Waiting for messages from servers...\n";
 
     while (true) {
       receiver.recv(&reply);
-
-      std::cout << "We received a message from a server!\n";
     }
   });
 

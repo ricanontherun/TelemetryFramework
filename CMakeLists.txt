@@ -23,6 +23,7 @@ FIND_LIBRARY(ZMQ_LIB zmq)
 add_executable(ventilator ${VENTILATOR_SRC})
 add_executable(server ${SERVER_SRC})
 
+# Ventilator Build
 target_link_libraries(ventilator ${ZMQ_LIB})
 target_link_libraries(ventilator pthread)
 
