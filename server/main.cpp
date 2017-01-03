@@ -1,9 +1,7 @@
-#include "../vendor/zmq.hpp"
-
+#include <zmq.hpp>
 #include <zmq_helpers.h>
 
 #include <iostream>
-#include <cstdlib>
 #include <unistd.h>
 
 int main() {
