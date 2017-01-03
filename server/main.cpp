@@ -1,6 +1,8 @@
 #include <zmq.hpp>
 #include <zmq_helpers.h>
 
+#include <telemetry.h>
+
 #include <iostream>
 #include <unistd.h>
 
@@ -14,9 +16,11 @@ int main() {
   zmq::socket_t replier(context, ZMQ_PUSH);
   replier.bind("tcp://*:5556");
 
-  // TODO: Add in message filtering.
-  // TODO: Initialize signal handlers. We never want this process to leave tcp ports bound.
-
+  // Setup the telemetry stuff.
+  Telemetry::Options options;
+  options.resources = Telemetry::Resource::DISK;
+  Telemetry::Unit unit(options);
+  std::string telemetry_str;
 
   while (true) {
     std::string message_str;
@@ -27,10 +31,10 @@ int main() {
 
     std::cout << "Received: " << message_str << "\n";
 
-    sleep(1);
+    unit.Read(telemetry_str);
 
-    zmq::message_t reply(5);
-    memcpy(reply.data(), "world", 5);
+    zmq::message_t reply(telemetry_str.length());
+    memcpy(reply.data(), telemetry_str.c_str(), telemetry_str.length());
     replier.send(reply);
   }
 

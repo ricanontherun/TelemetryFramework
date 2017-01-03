@@ -32,4 +32,4 @@ FIND_LIBRARY(ZMQ_LIB zmq)
 
 # Link the telemetry library file against our binary.
 target_link_libraries(telemetry-server telemetry)
-target_link_libraries(telemetry-server ZMQ_LIB)
+target_link_libraries(telemetry-server ${ZMQ_LIB})

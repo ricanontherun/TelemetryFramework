@@ -6,10 +6,9 @@
 #include <thread>
 #include <chrono>
 
-class server
-{
+class server {
  private:
-  zmq::socket_t * socket;
+  zmq::socket_t *socket;
   zmq::context_t context;
   const std::string addr;
 
@@ -19,7 +18,7 @@ class server
    *
    * @param addr
    */
-  server(const std::string & addr) :
+  server(const std::string &addr) :
       context(zmq::context_t(1)),
       socket(nullptr),
       addr(addr) {}
@@ -30,7 +29,7 @@ class server
       this->socket = new zmq::socket_t(this->context, ZMQ_REQ);
       this->socket->connect(this->addr);
 
-    } catch (zmq::error_t & error) {
+    } catch (zmq::error_t &error) {
       std::cerr << error.what() << "\n";
       return false;
     }
@@ -38,8 +37,7 @@ class server
     return true;
   }
 
-  bool communicate(const std::string & message_str, std::string & reply)
-  {
+  bool communicate(const std::string &message_str, std::string &reply) {
     // this->send(this->make_message(message_str));
 
     // this->receive(reply);
@@ -65,7 +63,7 @@ int main() {
   // Set up the ventilator thread. This thread is responsible for periodically requesting
   // data from each of the monitored nodes.
 
-  std::thread ventilator([]() {
+  std::thread request_thread([]() {
     zmq::context_t context(1);
     zmq::socket_t vent(context, ZMQ_PUSH);
     vent.connect("tcp://localhost:5555");
@@ -74,30 +72,35 @@ int main() {
     zmq::message_t message;
 
     while (true) {
-      std::cout << "Message: ";
-      std::cin >> message_str;
+      std::cout << "Press Enter: ";
+      getchar();
+
+      message_str = "Please send me some data!";
 
       message.rebuild(message_str.length());
       memcpy(message.data(), message_str.c_str(), message_str.length());
 
       vent.send(message);
-
-      std::this_thread::sleep_for(std::chrono::seconds(2));
     }
   });
 
-  std::thread sink([]() {
+  std::thread aggregate_thread([]() {
     zmq::context_t context(1);
     zmq::socket_t receiver(context, ZMQ_PULL);
     receiver.connect("tcp://localhost:5556");
 
     zmq::message_t reply;
+    std::string reply_str;
 
     while (true) {
       receiver.recv(&reply);
+
+      zmq_extract_message(reply, reply_str);
+
+      std::cout << reply_str << "\n";
     }
   });
 
-  ventilator.join();
-  sink.join();
+  request_thread.join();
+  aggregate_thread.join();
 }
