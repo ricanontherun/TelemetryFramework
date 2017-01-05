@@ -1,6 +1,7 @@
 #include <zmq.hpp>
 
 #include <zmq_helpers.h>
+#include <json.hpp>
 
 #include <iostream>
 #include <thread>
@@ -60,33 +61,52 @@ class server {
 };
 
 int main() {
-  // Set up the ventilator thread. This thread is responsible for periodically requesting
-  // data from each of the monitored nodes.
+  // TODO: Make these configurable via command line arguments.
+  std::vector<std::string> addresses = {
+      "tcp://localhost:5555"
+  };
 
-  std::thread request_thread([]() {
+  std::thread request_thread([&addresses]() {
+    std::vector<zmq::socket_t> sockets;
+    sockets.reserve(addresses.size());
+
     zmq::context_t context(1);
-    zmq::socket_t vent(context, ZMQ_PUSH);
-    vent.connect("tcp://localhost:5555");
+
+    // First, create the sockets.
+    for ( auto const & address : addresses ) {
+      sockets.push_back(zmq::socket_t(context, ZMQ_PUSH));
+
+      try {
+        sockets.back().connect(address);
+      } catch ( zmq::error_t & exception ) {
+        std::cerr << "Failed to connect to " << address << ", '" << exception.what() << "'\n";
+      }
+    }
 
     std::string message_str;
     zmq::message_t message;
 
     while (true) {
       std::cout << "Press Enter: ";
+
       getchar();
 
       message_str = "Please send me some data!";
 
-      message.rebuild(message_str.length());
-      memcpy(message.data(), message_str.c_str(), message_str.length());
+      for ( auto & socket : sockets ) {
+        message.rebuild(message_str.length());
+        memcpy(message.data(), message_str.c_str(), message_str.length());
 
-      vent.send(message);
+        // TODO: Research whether or not this blocks.
+        socket.send(message);
+      }
     }
   });
 
   std::thread aggregate_thread([]() {
     zmq::context_t context(1);
     zmq::socket_t receiver(context, ZMQ_PULL);
+
     receiver.connect("tcp://localhost:5556");
 
     zmq::message_t reply;
@@ -97,7 +117,15 @@ int main() {
 
       zmq_extract_message(reply, reply_str);
 
-      std::cout << reply_str << "\n";
+      nlohmann::json j;
+      try {
+        j = nlohmann::json::parse(reply_str);
+      } catch (std::invalid_argument & exception) {
+        std::cout << "Invalid json encountered\n";
+        continue;
+      }
+
+      std::cout << j.dump(4);
     }
   });
 
