@@ -7,7 +7,6 @@
 #include <unistd.h>
 
 int main() {
-
   zmq::context_t context(1);
 
   zmq::socket_t receiver(context, ZMQ_PULL);
@@ -22,21 +21,30 @@ int main() {
   Telemetry::Unit unit(options);
   std::string telemetry_str;
 
+  zmq::message_t request;
+  zmq::message_t reply;
+  std::string message_str;
+
   while (true) {
-    std::string message_str;
-    zmq::message_t request;
     receiver.recv(&request);
 
-    zmq_extract_message(request, message_str);
+    if ( !zmq_extract_message(request, message_str) ) {
+      // send back an error.
+      continue;
+    }
 
-    std::cout << "Received: " << message_str << "\n";
+    // TODO: What do we look for in the message?
 
+    // Read the system information into a string.
     unit.Read(telemetry_str);
 
-    zmq::message_t reply(telemetry_str.length());
-    memcpy(reply.data(), telemetry_str.c_str(), telemetry_str.length());
+    if ( !zmq_pack_message(reply, telemetry_str) ) {
+      // send back an error.
+      continue;
+    }
+
     replier.send(reply);
   }
 
-  return 0;
+  return EXIT_SUCCESS;
 }

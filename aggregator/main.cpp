@@ -1,77 +1,48 @@
 #include <zmq.hpp>
-
 #include <zmq_helpers.h>
-#include <json.hpp>
 
-#include <iostream>
+#include <fstream>
 #include <thread>
-#include <chrono>
 
-class server {
- private:
-  zmq::socket_t *socket;
-  zmq::context_t context;
-  const std::string addr;
+bool parse_config(const char *config_path, std::vector<std::string> & addresses)
+{
+  nlohmann::json config_json;
+  std::ifstream json_file(config_path);
 
- public:
-  /**
-   * Construct a server object with an address.
-   *
-   * @param addr
-   */
-  server(const std::string &addr) :
-      context(zmq::context_t(1)),
-      socket(nullptr),
-      addr(addr) {}
-
-  bool connect() {
-    try {
-
-      this->socket = new zmq::socket_t(this->context, ZMQ_REQ);
-      this->socket->connect(this->addr);
-
-    } catch (zmq::error_t &error) {
-      std::cerr << error.what() << "\n";
-      return false;
-    }
-
-    return true;
+  if ( !json_file.good() ) {
+    std::cerr << "Failed to open file " << config_path << " for reading\n";
+    return false;
   }
 
-  bool communicate(const std::string &message_str, std::string &reply) {
-    // this->send(this->make_message(message_str));
-
-    // this->receive(reply);
-    // return this->send(message_str)->receive(reply);
-    std::size_t message_length = message_str.length();
-
-    zmq::message_t message(message_length);
-
-    memcpy(message.data(), message_str.c_str(), message_length);
-
-    std::cout << (char *) message.data();
-    // Construct a message.
-    // Send it, block and wait for a reply.
-    // Write it to reply.
+  try { json_file >> config_json; }
+  catch ( std::invalid_argument & e ) {
+    std::cerr << "Failed to read json from " << config_path << "\n";
+    return false;
   }
 
-  ~server() {
-    delete this->socket;
+  // Check for nodes
+
+  return true;
+}
+
+int main(int argc, char **argv) {
+  if ( argc == 1 ) {
+    std::cout << argv[0] << " path/to/config\n";
+
+    return EXIT_FAILURE;
   }
-};
 
-int main() {
-  // TODO: Make these configurable via command line arguments.
-  std::vector<std::string> addresses = {
-      "tcp://localhost:5555"
-  };
+  std::vector<std::string> addresses;
+  parse_config(argv[1], addresses);
 
+  return 0;
   std::thread request_thread([&addresses]() {
     std::vector<zmq::socket_t> sockets;
     sockets.reserve(addresses.size());
 
     zmq::context_t context(1);
 
+    // setupSockets(addresses, sockets);
     // First, create the sockets.
     for ( auto const & address : addresses ) {
       sockets.push_back(zmq::socket_t(context, ZMQ_PUSH));
@@ -79,10 +50,11 @@ int main() {
       try {
         sockets.back().connect(address);
       } catch ( zmq::error_t & exception ) {
-        std::cerr << "Failed to connect to " << address << ", '" << exception.what() << "'\n";
+        std::cerr << "Failed to connect to '" << address << "', '" << exception.what() << "'\n";
       }
     }
 
+    // Request loop
     std::string message_str;
     zmq::message_t message;
 
@@ -94,10 +66,7 @@ int main() {
       message_str = "Please send me some data!";
 
       for ( auto & socket : sockets ) {
-        message.rebuild(message_str.length());
-        memcpy(message.data(), message_str.c_str(), message_str.length());
-
-        // TODO: Research whether or not this blocks.
+        zmq_pack_message(message, message_str);
         socket.send(message);
       }
     }
@@ -112,20 +81,17 @@ int main() {
     zmq::message_t reply;
     std::string reply_str;
 
+    nlohmann::json reply_json;
+
     while (true) {
       receiver.recv(&reply);
 
-      zmq_extract_message(reply, reply_str);
-
-      nlohmann::json j;
-      try {
-        j = nlohmann::json::parse(reply_str);
-      } catch (std::invalid_argument & exception) {
-        std::cout << "Invalid json encountered\n";
+      if ( !zmq_extract_json(reply, reply_json) ) {
+        std::cerr << "Failed to parse JSON\n";
         continue;
       }
 
-      std::cout << j.dump(4);
+      std::cout << reply_json.dump(4);
     }
   });
 
