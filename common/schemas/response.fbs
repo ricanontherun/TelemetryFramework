@@ -1,0 +1,12 @@
+include "filesystem.fbs";
+include "memory.fbs";
+
+namespace Telemetry.Buffers;
+
+table Response
+{
+    filesystems:[Filesystem];
+    memory:Memory;
+}
+
+root_type Response;

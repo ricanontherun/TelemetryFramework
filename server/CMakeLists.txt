@@ -10,26 +10,23 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
 set(COMMON_PATH ../common)
 
 include_directories(
-        vendor/zeromq
-        vendor/Telemetry/include
-        vendor/Telemetry/vendor
+        libs/zeromq
+        libs/Telemetry/include
+        libs/flatbuffers/include
         ${COMMON_PATH}/vendor
         ${COMMON_PATH}/include
 )
 
-# Provide the path to the library file.
-link_directories(vendor/Telemetry/build)
+set(SRC main.cpp)
 
-set(
-        SRC
-        main.cpp
+link_directories(
+        libs/Telemetry/build
+        libs/flatbuffers/build
 )
 
 add_executable(telemetry-server ${SRC})
 
-
 FIND_LIBRARY(ZMQ_LIB zmq)
-
-# Link the telemetry library file against our binary.
-target_link_libraries(telemetry-server telemetry)
 target_link_libraries(telemetry-server ${ZMQ_LIB})
+
+target_link_libraries(telemetry-server telemetry)

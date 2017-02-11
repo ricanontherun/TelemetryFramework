@@ -2,9 +2,68 @@
 #include <zmq_helpers.h>
 
 #include <telemetry.h>
+#include <flatbuffers/flatbuffers.h>
 
-#include <iostream>
-#include <unistd.h>
+#include <response_generated.h>
+#include <filesystem_generated.h>
+#include <usage_generated.h>
+
+#include <iomanip>
+
+void SerializeResults(const Telemetry::Results & results, flatbuffers::FlatBufferBuilder & builder)
+{
+    // Create all of the data structures which reside inside a response buffer.
+    // Then, create the response builder, add the inside structures, finish().
+
+    // vector of filesystem structs.
+    std::vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>> filesystems;
+
+    // Insert
+    Telemetry::Core::Sys::FileSystemIterators fsit = results.GetFilesystemIterators();
+
+    for (auto it = fsit.first; it != fsit.second; it++)
+    {
+        auto label = builder.CreateString(it->GetLabel());
+
+        Telemetry::Buffers::Usage size(
+            it->GetSize(),          // Actual
+            it->GetRelativeSize()   // Relative
+        );
+
+        Telemetry::Buffers::Usage used(
+            it->GetUsed(),
+            it->GetRelativeUsed()
+        );
+
+        Telemetry::Buffers::Usage available(
+            it->GetAvailable(),
+            it->GetRelativeAvailable()
+        );
+
+        auto filesystem = Telemetry::Buffers::CreateFilesystem(
+            builder,
+            label,
+            &size,
+            &used,
+            &available
+        );
+
+        filesystems.push_back(filesystem);
+    }
+
+    // Serialize the std::vector into a flatbuffers vector.
+    auto flatbuffer_filesystems = builder.CreateVector(filesystems);
+
+    Telemetry::Buffers::ResponseBuilder response_builder(builder);
+
+    // Add the filesystems, memory, processes etc.
+    response_builder.add_filesystems(flatbuffer_filesystems);
+
+    auto response = response_builder.Finish();
+
+    // Wrap that builder up.
+    builder.Finish(response);
+}
 
 int main() {
   zmq::context_t context(1);
@@ -15,11 +74,21 @@ int main() {
   zmq::socket_t replier(context, ZMQ_PUSH);
   replier.bind("tcp://*:5556");
 
-  // Setup the telemetry stuff.
   Telemetry::Options options;
-  options.resources = Telemetry::Resource::DISK;
+  options.resources = Telemetry::Resource::FILESYSTEMS;
+
+  Telemetry::Results results;
   Telemetry::Unit unit(options);
-  std::string telemetry_str;
+
+  unit.Read(results);
+
+  flatbuffers::FlatBufferBuilder builder(1024);
+
+  SerializeResults(results, builder);
+
+  std::uint8_t *pointer = builder.GetBufferPointer();
+
+  return 0;
 
   zmq::message_t request;
   zmq::message_t reply;
@@ -36,9 +105,9 @@ int main() {
     // TODO: What do we look for in the message?
 
     // Read the system information into a string.
-    unit.Read(telemetry_str);
+    unit.Read(results);
 
-    if ( !zmq_pack_message(reply, telemetry_str) ) {
+    if ( !zmq_pack_message(reply, "") ) {
       // send back an error.
       continue;
     }
@@ -48,3 +117,4 @@ int main() {
 
   return EXIT_SUCCESS;
 }
+

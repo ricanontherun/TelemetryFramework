@@ -1,0 +1,6 @@
+namespace Telemetry.Buffers;
+
+struct Usage {
+    actual:float;
+    relative:float;
+}

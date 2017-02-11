@@ -1,0 +1,10 @@
+include "usage.fbs";
+
+namespace Telemetry.Buffers;
+
+table Memory
+{
+    total:ulong;
+    used:Usage;
+    free:Usage;
+}

@@ -1,0 +1,10 @@
+include "usage.fbs";
+
+namespace Telemetry.Buffers;
+
+table Filesystem {
+    label:string;
+    size:Usage;
+    used:Usage;
+    free:Usage;
+}
