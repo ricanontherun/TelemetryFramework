@@ -71,4 +71,16 @@ bool zmq_pack_message(zmq::message_t &message, std::string data) {
   return true;
 }
 
+bool zmq_pack_message(zmq::message_t & message, void *data, std::size_t len) {
+  try {
+    message.rebuild(len);
+  } catch (zmq::error_t &e) {
+    return false;
+  }
+
+  memcpy(message.data(), data, len);
+
+  return true;
+}
+
 #endif

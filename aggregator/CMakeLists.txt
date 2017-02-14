@@ -8,13 +8,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
 set(COMMON_PATH ../common)
 
 include_directories(
-        ${COMMON_PATH}/vendor
-        ${COMMON_PATH}/include
+    ${COMMON_PATH}/vendor
+    ${COMMON_PATH}/libs/flatbuffers/include
+    ${COMMON_PATH}/include
 )
 
 set(
-        SRC
-        main.cpp
+    SRC
+    main.cpp
 )
 
 FIND_LIBRARY(ZMQ_LIB zmq)

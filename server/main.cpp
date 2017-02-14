@@ -80,16 +80,6 @@ int main() {
   Telemetry::Results results;
   Telemetry::Unit unit(options);
 
-  unit.Read(results);
-
-  flatbuffers::FlatBufferBuilder builder(1024);
-
-  SerializeResults(results, builder);
-
-  std::uint8_t *pointer = builder.GetBufferPointer();
-
-  return 0;
-
   zmq::message_t request;
   zmq::message_t reply;
   std::string message_str;
@@ -102,16 +92,21 @@ int main() {
       continue;
     }
 
-    // TODO: What do we look for in the message?
-
-    // Read the system information into a string.
+    std::cout << "Reading data\n";
     unit.Read(results);
 
-    if ( !zmq_pack_message(reply, "") ) {
+    flatbuffers::FlatBufferBuilder builder(1024);
+
+    SerializeResults(results, builder);
+
+    std::uint8_t *pointer = builder.GetBufferPointer();
+
+    if ( !zmq_pack_message(reply, (void *) pointer, builder.GetSize()) ) {
       // send back an error.
       continue;
     }
 
+    std::cout << "Sending data back\n";
     replier.send(reply);
   }
 

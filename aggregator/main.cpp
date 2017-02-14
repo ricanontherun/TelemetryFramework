@@ -1,6 +1,9 @@
 #include <zmq.hpp>
 #include <zmq_helpers.h>
 
+#include <flatbuffers/flatbuffers.h>
+#include <response_generated.h>
+
 #include <fstream>
 #include <thread>
 
@@ -26,16 +29,10 @@ bool parse_config(const char *config_path, std::vector<std::string> & addresses)
 }
 
 int main(int argc, char **argv) {
-  if ( argc == 1 ) {
-    std::cout << argv[0] << " path/to/config\n";
-
-    return EXIT_FAILURE;
-  }
-
   std::vector<std::string> addresses;
-  parse_config(argv[1], addresses);
 
-  return 0;
+  addresses.push_back("tcp://localhost:5555");
+
   std::thread request_thread([&addresses]() {
     std::vector<zmq::socket_t> sockets;
     sockets.reserve(addresses.size());
@@ -86,12 +83,11 @@ int main(int argc, char **argv) {
     while (true) {
       receiver.recv(&reply);
 
-      if ( !zmq_extract_json(reply, reply_json) ) {
-        std::cerr << "Failed to parse JSON\n";
-        continue;
-      }
+        auto response = Telemetry::Buffers::GetResponse(reply.data());
 
-      std::cout << reply_json.dump(4);
+        std::cout << response->filesystems()->begin()->label()->c_str();
+
+      std::cout << "Received some replies from the server!!!\n";
     }
   });
 

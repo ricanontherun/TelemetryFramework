@@ -12,9 +12,9 @@ set(COMMON_PATH ../common)
 include_directories(
         libs/zeromq
         libs/Telemetry/include
-        libs/flatbuffers/include
         ${COMMON_PATH}/vendor
         ${COMMON_PATH}/include
+        ${COMMON_PATH}/libs/flatbuffers/include
 )
 
 set(SRC main.cpp)
