@@ -8,108 +8,168 @@
 #include <filesystem_generated.h>
 #include <usage_generated.h>
 
+#include <iostream>
 #include <iomanip>
+#include <unistd.h>
+
+void SerializeResults(const Telemetry::Results & results, flatbuffers::FlatBufferBuilder & builder);
+
+namespace Networking
+{
+  class Request
+  {
+    friend class Server;
+
+    private:
+      zmq::message_t request;
+
+    public:
+      Request() {}
+  };
+
+  class Reply
+  {
+    friend class Server;
+
+    private:
+      zmq::message_t reply;
+    public:
+      Reply() {};
+  };
+
+  class Server
+  {
+    public:
+      Server()
+      : context(1), request_socket(context, ZMQ_PULL), reply_socket(context, ZMQ_PUSH), unit(Telemetry::Unit()) {};
+
+      bool Init()
+      {
+        try {
+          this->request_socket.bind("tcp://*:5555");
+          this->reply_socket.bind("tcp://*:5556");
+
+          return true;
+        } catch ( zmq::error_t & e ) {
+          std::cerr << "Server::Init, " << e.what() << "\n";
+
+          return false;
+        }
+      }
+
+      bool WaitForClient(Request & request)
+      {
+        this->request_socket.recv(&(request.request));
+      }
+
+      bool HandleRequest(const Request & request, Reply & reply)
+      {
+        // Unmarshal the request, figure out what procedure is being request
+        // with what arugments.
+        Telemetry::Results results;
+
+        Telemetry::Options options;
+        options.resources = Telemetry::Resource::FILESYSTEMS;
+
+        unit.Read(options, results);
+
+        flatbuffers::FlatBufferBuilder builder(1024);
+
+        // TODO: Error checking
+        SerializeResults(results, builder);
+
+        zmq_pack_message(reply.reply, (void *) builder.GetBufferPointer(), builder.GetSize());
+
+        return true;
+      }
+
+      bool SendReply(Reply & reply)
+      {
+        this->reply_socket.send(reply.reply);
+
+        return true;
+      }
+
+    private:
+      zmq::context_t context;
+      zmq::socket_t request_socket;
+      zmq::socket_t reply_socket;
+
+      Telemetry::Unit unit;
+  };
+}
 
 void SerializeResults(const Telemetry::Results & results, flatbuffers::FlatBufferBuilder & builder)
 {
-    // Create all of the data structures which reside inside a response buffer.
-    // Then, create the response builder, add the inside structures, finish().
 
-    // vector of filesystem structs.
-    std::vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>> filesystems;
+  // Create all of the data structures which reside inside a response buffer.
+  // Then, create the response builder, add the inside structures, finish().
 
-    // Insert
-    Telemetry::Core::Sys::FileSystemIterators fsit = results.GetFilesystemIterators();
+  // vector of filesystem structs.
+  std::vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>> filesystems;
 
-    for (auto it = fsit.first; it != fsit.second; it++)
-    {
-        auto label = builder.CreateString(it->GetLabel());
+  // Insert
+  Telemetry::Core::Sys::FileSystemIterators fsit = results.GetFilesystemIterators();
 
-        Telemetry::Buffers::Usage size(
-            it->GetSize(),          // Actual
-            it->GetRelativeSize()   // Relative
+  for (auto it = fsit.first; it != fsit.second; it++)
+  {
+    auto label = builder.CreateString(it->GetLabel());
+
+    Telemetry::Buffers::Usage size(
+        it->GetSize(),          // Actual
+        it->GetRelativeSize()   // Relative
         );
 
-        Telemetry::Buffers::Usage used(
-            it->GetUsed(),
-            it->GetRelativeUsed()
+    Telemetry::Buffers::Usage used(
+        it->GetUsed(),
+        it->GetRelativeUsed()
         );
 
-        Telemetry::Buffers::Usage available(
-            it->GetAvailable(),
-            it->GetRelativeAvailable()
+    Telemetry::Buffers::Usage available(
+        it->GetAvailable(),
+        it->GetRelativeAvailable()
         );
 
-        auto filesystem = Telemetry::Buffers::CreateFilesystem(
-            builder,
-            label,
-            &size,
-            &used,
-            &available
+    auto filesystem = Telemetry::Buffers::CreateFilesystem(
+        builder,
+        label,
+        &size,
+        &used,
+        &available
         );
 
-        filesystems.push_back(filesystem);
-    }
+    filesystems.push_back(filesystem);
+  }
 
-    // Serialize the std::vector into a flatbuffers vector.
-    auto flatbuffer_filesystems = builder.CreateVector(filesystems);
+  // Serialize the std::vector into a flatbuffers vector.
+  auto flatbuffer_filesystems = builder.CreateVector(filesystems);
 
-    Telemetry::Buffers::ResponseBuilder response_builder(builder);
+  Telemetry::Buffers::ResponseBuilder response_builder(builder);
 
-    // Add the filesystems, memory, processes etc.
-    response_builder.add_filesystems(flatbuffer_filesystems);
+  // Add the filesystems, memory, processes etc.
+  response_builder.add_filesystems(flatbuffer_filesystems);
 
-    auto response = response_builder.Finish();
+  auto response = response_builder.Finish();
 
-    // Wrap that builder up.
-    builder.Finish(response);
+  // Wrap that builder up.
+  builder.Finish(response);
 }
 
 int main() {
-  zmq::context_t context(1);
+  Networking::Server server;
 
-  zmq::socket_t receiver(context, ZMQ_PULL);
-  receiver.bind("tcp://*:5555");
+  server.Init();
 
-  zmq::socket_t replier(context, ZMQ_PUSH);
-  replier.bind("tcp://*:5556");
-
-  Telemetry::Options options;
-  options.resources = Telemetry::Resource::FILESYSTEMS;
-
-  Telemetry::Results results;
-  Telemetry::Unit unit(options);
-
-  zmq::message_t request;
-  zmq::message_t reply;
-  std::string message_str;
+  Networking::Request request;
+  Networking::Reply reply;
 
   while (true) {
-    receiver.recv(&request);
+    server.WaitForClient(request);
 
-    if ( !zmq_extract_message(request, message_str) ) {
-      // send back an error.
-      continue;
-    }
+    // Next we need to parse out the request command and the arguments and all that.
+    server.HandleRequest(request, reply);
 
-    std::cout << "Reading data\n";
-    unit.Read(results);
-
-    flatbuffers::FlatBufferBuilder builder(1024);
-
-    SerializeResults(results, builder);
-
-    std::uint8_t *pointer = builder.GetBufferPointer();
-
-    if ( !zmq_pack_message(reply, (void *) pointer, builder.GetSize()) ) {
-      // send back an error.
-      continue;
-    }
-
-    std::cout << "Sending data back\n";
-    replier.send(reply);
+    server.SendReply(reply);
   }
-
-  return EXIT_SUCCESS;
 }
 
