@@ -3,6 +3,7 @@
 
 #include <flatbuffers/flatbuffers.h>
 #include <response_generated.h>
+#include <request_generated.h>
 
 #include <fstream>
 #include <thread>
@@ -29,6 +30,22 @@ bool parse_config(const char *config_path, std::vector<std::string> & addresses)
 }
 
 int main(int argc, char **argv) {
+  // Builder
+  flatbuffers::FlatBufferBuilder builder(1024);
+
+  Telemetry::Buffers::RequestBuilder request(builder);
+
+  request.add_procedure(Telemetry::Buffers::Procedure_Read);
+
+  auto request_offset = request.Finish();
+
+  builder.Finish(request_offset);
+
+  auto thingy = Telemetry::Buffers::GetRequest(builder.GetBufferPointer());
+
+  std::cout << thingy->procedure();
+
+  return 1;
   std::vector<std::string> addresses;
 
   addresses.push_back("tcp://localhost:5555");

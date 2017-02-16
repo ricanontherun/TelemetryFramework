@@ -1,0 +1,10 @@
+namespace Telemetry.Buffers;
+
+enum Procedure:byte {Read = 0}
+
+table Request
+{
+  procedure:Procedure;
+}
+
+root_type Request;

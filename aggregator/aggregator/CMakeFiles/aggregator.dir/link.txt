@@ -1,0 +1,1 @@
+clang++   -std=c++14   CMakeFiles/aggregator.dir/main.cpp.o  -o bin/aggregator /usr/local/lib/libzmq.so -lpthread -Wl,-rpath,/usr/local/lib 

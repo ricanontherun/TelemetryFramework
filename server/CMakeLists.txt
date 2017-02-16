@@ -2,9 +2,10 @@ cmake_minimum_required(VERSION 3.5.1)
 project(telemetry-server)
 
 # CMake Settings.
-set(CMAKE_CXX_COMPILER g++)
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -std=c++11)
+set(CMAKE_CXX_COMPILER clang++)
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} --std=c++14)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
+#set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
 # Paths
 set(COMMON_PATH ../common)
@@ -28,5 +29,4 @@ add_executable(telemetry-server ${SRC})
 
 FIND_LIBRARY(ZMQ_LIB zmq)
 target_link_libraries(telemetry-server ${ZMQ_LIB})
-
 target_link_libraries(telemetry-server telemetry)

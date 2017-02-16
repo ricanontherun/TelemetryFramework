@@ -57,7 +57,7 @@ namespace Networking
         }
       }
 
-      bool WaitForClient(Request & request)
+      void WaitForClient(Request & request)
       {
         this->request_socket.recv(&(request.request));
       }
@@ -94,6 +94,7 @@ namespace Networking
       zmq::context_t context;
       zmq::socket_t request_socket;
       zmq::socket_t reply_socket;
+
 
       Telemetry::Unit unit;
   };
