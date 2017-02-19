@@ -7,49 +7,35 @@
 
 #include <fstream>
 #include <thread>
-
-bool parse_config(const char *config_path, std::vector<std::string> & addresses)
-{
-  nlohmann::json config_json;
-  std::ifstream json_file(config_path);
-
-  if ( !json_file.good() ) {
-    std::cerr << "Failed to open file " << config_path << " for reading\n";
-    return false;
-  }
-
-  try { json_file >> config_json; }
-  catch ( std::invalid_argument & e ) {
-    std::cerr << "Failed to read json from " << config_path << "\n";
-    return false;
-  }
-
-  // Check for nodes
-
-  return true;
-}
+#include <iostream>
+#include <vector>
 
 int main(int argc, char **argv) {
-  // Builder
   flatbuffers::FlatBufferBuilder builder(1024);
 
-  auto procedure = Telemetry::Buffers::CreateReadProcedure(builder, Telemetry::Buffers::RESOURCE_MEMORY, 12);
+  auto procedure = Telemetry::Buffers::CreateReadProcedure(builder, Telemetry::Buffers::RESOURCE_MEMORY);
 
   Telemetry::Buffers::RequestBuilder request_builder(builder);
 
   request_builder.add_procedure_type(Telemetry::Buffers::Procedure_ReadProcedure);
-  request_builder.add_procedure(procedure);
 
-  return 1;
+  request_builder.add_procedure(procedure.Union());
+
   auto request_offset = request_builder.Finish();
 
   builder.Finish(request_offset);
 
   auto thingy = Telemetry::Buffers::GetRequest(builder.GetBufferPointer());
 
-  std::cout << thingy->procedure_type();
+  int type = thingy->procedure_type();
 
-  return 1;
+  switch (type) {
+    case Telemetry::Buffers::Procedure_ReadProcedure:
+      std::cout << "You're using the read procedure\n";
+      break;
+  }
+
+  return 0;
   std::vector<std::string> addresses;
 
   addresses.push_back("tcp://localhost:5555");

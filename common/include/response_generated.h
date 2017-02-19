@@ -72,7 +72,7 @@ inline flatbuffers::Offset<Response> CreateResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>> *filesystems = nullptr,
     flatbuffers::Offset<Telemetry::Buffers::Memory> memory = 0) {
-  return CreateResponse(
+  return Telemetry::Buffers::CreateResponse(
       _fbb,
       filesystems ? _fbb.CreateVector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>>(*filesystems) : 0,
       memory);
