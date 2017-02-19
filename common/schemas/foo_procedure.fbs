@@ -1,0 +1,6 @@
+namespace Telemetry.Buffers;
+
+table FooProcedure {
+  bar:string;
+  baz:int;
+}

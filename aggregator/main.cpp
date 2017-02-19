@@ -33,17 +33,21 @@ int main(int argc, char **argv) {
   // Builder
   flatbuffers::FlatBufferBuilder builder(1024);
 
-  Telemetry::Buffers::RequestBuilder request(builder);
+  auto procedure = Telemetry::Buffers::CreateReadProcedure(builder, Telemetry::Buffers::RESOURCE_MEMORY, 12);
 
-  request.add_procedure(Telemetry::Buffers::Procedure_Read);
+  Telemetry::Buffers::RequestBuilder request_builder(builder);
 
-  auto request_offset = request.Finish();
+  request_builder.add_procedure_type(Telemetry::Buffers::Procedure_ReadProcedure);
+  request_builder.add_procedure(procedure);
+
+  return 1;
+  auto request_offset = request_builder.Finish();
 
   builder.Finish(request_offset);
 
   auto thingy = Telemetry::Buffers::GetRequest(builder.GetBufferPointer());
 
-  std::cout << thingy->procedure();
+  std::cout << thingy->procedure_type();
 
   return 1;
   std::vector<std::string> addresses;

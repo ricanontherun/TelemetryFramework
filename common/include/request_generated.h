@@ -11,15 +11,40 @@ namespace Buffers {
 
 struct Request;
 
+struct ReadProcedure;
+
+enum RESOURCE {
+  RESOURCE_FILESYSTEMS = 0,
+  RESOURCE_MEMORY = 1,
+  RESOURCE_MIN = RESOURCE_FILESYSTEMS,
+  RESOURCE_MAX = RESOURCE_MEMORY
+};
+
+inline const char **EnumNamesRESOURCE() {
+  static const char *names[] = {
+    "FILESYSTEMS",
+    "MEMORY",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameRESOURCE(RESOURCE e) {
+  const size_t index = static_cast<int>(e);
+  return EnumNamesRESOURCE()[index];
+}
+
 enum Procedure {
-  Procedure_Read = 0,
-  Procedure_MIN = Procedure_Read,
-  Procedure_MAX = Procedure_Read
+  Procedure_NONE = 0,
+  Procedure_ReadProcedure = 1,
+  Procedure_MIN = Procedure_NONE,
+  Procedure_MAX = Procedure_ReadProcedure
 };
 
 inline const char **EnumNamesProcedure() {
   static const char *names[] = {
-    "Read",
+    "NONE",
+    "ReadProcedure",
     nullptr
   };
   return names;
@@ -30,16 +55,38 @@ inline const char *EnumNameProcedure(Procedure e) {
   return EnumNamesProcedure()[index];
 }
 
+template<typename T> struct ProcedureTraits {
+  static const Procedure enum_value = Procedure_NONE;
+};
+
+template<> struct ProcedureTraits<ReadProcedure> {
+  static const Procedure enum_value = Procedure_ReadProcedure;
+};
+
+bool VerifyProcedure(flatbuffers::Verifier &verifier, const void *obj, Procedure type);
+bool VerifyProcedureVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+
 struct Request FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum {
-    VT_PROCEDURE = 4
+    VT_NUM = 4,
+    VT_PROCEDURE_TYPE = 6,
+    VT_PROCEDURE = 8
   };
-  Procedure procedure() const {
-    return static_cast<Procedure>(GetField<int8_t>(VT_PROCEDURE, 0));
+  int32_t num() const {
+    return GetField<int32_t>(VT_NUM, 0);
+  }
+  Procedure procedure_type() const {
+    return static_cast<Procedure>(GetField<uint8_t>(VT_PROCEDURE_TYPE, 0));
+  }
+  const void *procedure() const {
+    return GetPointer<const void *>(VT_PROCEDURE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_PROCEDURE) &&
+           VerifyField<int32_t>(verifier, VT_NUM) &&
+           VerifyField<uint8_t>(verifier, VT_PROCEDURE_TYPE) &&
+           VerifyField<flatbuffers::uoffset_t>(verifier, VT_PROCEDURE) &&
+           VerifyProcedure(verifier, procedure(), procedure_type()) &&
            verifier.EndTable();
   }
 };
@@ -47,8 +94,14 @@ struct Request FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct RequestBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_procedure(Procedure procedure) {
-    fbb_.AddElement<int8_t>(Request::VT_PROCEDURE, static_cast<int8_t>(procedure), 0);
+  void add_num(int32_t num) {
+    fbb_.AddElement<int32_t>(Request::VT_NUM, num, 0);
+  }
+  void add_procedure_type(Procedure procedure_type) {
+    fbb_.AddElement<uint8_t>(Request::VT_PROCEDURE_TYPE, static_cast<uint8_t>(procedure_type), 0);
+  }
+  void add_procedure(flatbuffers::Offset<void> procedure) {
+    fbb_.AddOffset(Request::VT_PROCEDURE, procedure);
   }
   RequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -56,7 +109,7 @@ struct RequestBuilder {
   }
   RequestBuilder &operator=(const RequestBuilder &);
   flatbuffers::Offset<Request> Finish() {
-    const auto end = fbb_.EndTable(start_, 1);
+    const auto end = fbb_.EndTable(start_, 3);
     auto o = flatbuffers::Offset<Request>(end);
     return o;
   }
@@ -64,10 +117,88 @@ struct RequestBuilder {
 
 inline flatbuffers::Offset<Request> CreateRequest(
     flatbuffers::FlatBufferBuilder &_fbb,
-    Procedure procedure = Procedure_Read) {
+    int32_t num = 0,
+    Procedure procedure_type = Procedure_NONE,
+    flatbuffers::Offset<void> procedure = 0) {
   RequestBuilder builder_(_fbb);
   builder_.add_procedure(procedure);
+  builder_.add_num(num);
+  builder_.add_procedure_type(procedure_type);
   return builder_.Finish();
+}
+
+struct ReadProcedure FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum {
+    VT_RESOURCE = 4,
+    VT_THING = 6
+  };
+  RESOURCE Resource() const {
+    return static_cast<RESOURCE>(GetField<int8_t>(VT_RESOURCE, 0));
+  }
+  int32_t thing() const {
+    return GetField<int32_t>(VT_THING, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int8_t>(verifier, VT_RESOURCE) &&
+           VerifyField<int32_t>(verifier, VT_THING) &&
+           verifier.EndTable();
+  }
+};
+
+struct ReadProcedureBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_Resource(RESOURCE Resource) {
+    fbb_.AddElement<int8_t>(ReadProcedure::VT_RESOURCE, static_cast<int8_t>(Resource), 0);
+  }
+  void add_thing(int32_t thing) {
+    fbb_.AddElement<int32_t>(ReadProcedure::VT_THING, thing, 0);
+  }
+  ReadProcedureBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ReadProcedureBuilder &operator=(const ReadProcedureBuilder &);
+  flatbuffers::Offset<ReadProcedure> Finish() {
+    const auto end = fbb_.EndTable(start_, 2);
+    auto o = flatbuffers::Offset<ReadProcedure>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<ReadProcedure> CreateReadProcedure(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    RESOURCE Resource = RESOURCE_FILESYSTEMS,
+    int32_t thing = 0) {
+  ReadProcedureBuilder builder_(_fbb);
+  builder_.add_thing(thing);
+  builder_.add_Resource(Resource);
+  return builder_.Finish();
+}
+
+inline bool VerifyProcedure(flatbuffers::Verifier &verifier, const void *obj, Procedure type) {
+  switch (type) {
+    case Procedure_NONE: {
+      return true;
+    }
+    case Procedure_ReadProcedure: {
+      auto ptr = reinterpret_cast<const ReadProcedure *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return false;
+  }
+}
+
+inline bool VerifyProcedureVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+  if (values->size() != types->size()) return false;
+  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifyProcedure(
+        verifier,  values->Get(i), types->GetEnum<Procedure>(i))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 inline const Telemetry::Buffers::Request *GetRequest(const void *buf) {
