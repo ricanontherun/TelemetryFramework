@@ -1,5 +1,5 @@
 #include <zmq.hpp>
-#include <zmq_helpers.h>
+#include <zmq_functions.h>
 
 #include <flatbuffers/flatbuffers.h>
 #include <response_generated.h>
@@ -11,12 +11,12 @@
 #include <vector>
 
 // We need an interface for the remote procedures. They can get called via this
-// TelemetryClient class, which will handle marshalling requests and unmarshalling
+// Client class, which will handle marshalling requests and unmarshalling
 // replies and all that.
-class TelemetryClient
+class Client
 {
   public:
-    TelemetryClient() {}
+    Client() {}
 
     void Read(int resources) {
       flatbuffers::FlatBufferBuilder builder(1024);
@@ -62,10 +62,10 @@ int main(int argc, char **argv) {
   std::thread request_thread([&addresses]() {
     std::vector<zmq::socket_t> sockets;
     sockets.reserve(addresses.size());
+    zmq::message_t message;
 
     zmq::context_t context(1);
 
-    // setupSockets(addresses, sockets);
     // First, create the sockets.
     for ( auto const & address : addresses ) {
       sockets.push_back(zmq::socket_t(context, ZMQ_PUSH));
@@ -77,21 +77,15 @@ int main(int argc, char **argv) {
       }
     }
 
-    TelemetryClient client;
-
-    // client.AddServer();
-
-    client.Read(Telemetry::Buffers::RESOURCE::RESOURCE_FILESYSTEMS);
-
     while (true) {
       std::cout << "Press Enter: ";
 
       getchar();
 
-      message_str = "Please send me some data!";
+      std::string message_str = "Please send me some data!";
 
       for ( auto & socket : sockets ) {
-        zmq_pack_message(message, message_str);
+        ZMQFunctions::pack(message, (void *) message_str.c_str(), message_str.length());
         socket.send(message);
       }
     }
@@ -111,9 +105,7 @@ int main(int argc, char **argv) {
 
       auto response = Telemetry::Buffers::GetResponse(reply.data());
 
-      std::cout << response->filesystems()->begin()->label()->c_str();
-
-      std::cout << "Received some replies from the server!!!\n";
+      std::cout << "Filesystem Label " << response->filesystems()->begin()->label()->c_str() << "\n";
     }
   });
 

@@ -9,6 +9,7 @@ set(COMMON_PATH ../common)
 
 include_directories(
     include
+    ${COMMON_PATH}
     ${COMMON_PATH}/vendor
     ${COMMON_PATH}/libs/flatbuffers/include
     ${COMMON_PATH}/include
@@ -18,6 +19,7 @@ set(
     SRC
     main.cpp
     src/networking.cpp
+    ${COMMON_PATH}/zmq_functions.cpp
 )
 
 FIND_LIBRARY(ZMQ_LIB zmq)

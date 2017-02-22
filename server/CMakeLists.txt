@@ -13,13 +13,14 @@ set(COMMON_PATH ../common)
 include_directories(
         libs/zeromq
         libs/Telemetry/include
+        ${COMMON_PATH}
         ${COMMON_PATH}/vendor
         ${COMMON_PATH}/include
         ${COMMON_PATH}/libs/flatbuffers/include
         .
 )
 
-set(SRC main.cpp server.cpp serialize.cpp zmq_functions.cpp)
+set(SRC main.cpp server.cpp serialize.cpp ${COMMON_PATH}/zmq_functions.cpp)
 
 link_directories(
         libs/Telemetry/build
