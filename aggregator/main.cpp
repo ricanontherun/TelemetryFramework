@@ -10,32 +10,51 @@
 #include <iostream>
 #include <vector>
 
+// We need an interface for the remote procedures. They can get called via this
+// TelemetryClient class, which will handle marshalling requests and unmarshalling
+// replies and all that.
+class TelemetryClient
+{
+  public:
+    TelemetryClient() {}
+
+    void Read(int resources) {
+      flatbuffers::FlatBufferBuilder builder(1024);
+
+      this->BuildReadProcedure(builder, resources);
+
+      std::uint8_t *pointer = builder.GetBufferPointer();
+
+      // Pack the binary into a request message and send it to the server.
+      // This is a great place to implement network instrumentation like request times
+      // and unresponsive servers.
+      auto request_pointer = Telemetry::Buffers::GetRequest(builder.GetBufferPointer());
+
+      std::cout << request_pointer->procedure_type() << "\n";
+    }
+
+  private:
+    void BuildReadProcedure(flatbuffers::FlatBufferBuilder & builder, int resources)
+    {
+      // Super important to create the nested elements with a depth-first approach.
+      auto procedure = Telemetry::Buffers::CreateReadProcedure(
+          builder,
+          static_cast<Telemetry::Buffers::RESOURCE>(resources)
+      );
+
+      Telemetry::Buffers::RequestBuilder request_builder(builder);
+
+      // Add the already created elements.
+      request_builder.add_procedure_type(Telemetry::Buffers::Procedure_ReadProcedure);
+      request_builder.add_procedure(procedure.Union());
+
+      auto request_buffer_offset = request_builder.Finish();
+
+      builder.Finish(request_buffer_offset);
+    }
+};
+
 int main(int argc, char **argv) {
-  flatbuffers::FlatBufferBuilder builder(1024);
-
-  auto procedure = Telemetry::Buffers::CreateReadProcedure(builder, Telemetry::Buffers::RESOURCE_MEMORY);
-
-  Telemetry::Buffers::RequestBuilder request_builder(builder);
-
-  request_builder.add_procedure_type(Telemetry::Buffers::Procedure_ReadProcedure);
-
-  request_builder.add_procedure(procedure.Union());
-
-  auto request_offset = request_builder.Finish();
-
-  builder.Finish(request_offset);
-
-  auto thingy = Telemetry::Buffers::GetRequest(builder.GetBufferPointer());
-
-  int type = thingy->procedure_type();
-
-  switch (type) {
-    case Telemetry::Buffers::Procedure_ReadProcedure:
-      std::cout << "You're using the read procedure\n";
-      break;
-  }
-
-  return 0;
   std::vector<std::string> addresses;
 
   addresses.push_back("tcp://localhost:5555");
@@ -58,9 +77,11 @@ int main(int argc, char **argv) {
       }
     }
 
-    // Request loop
-    std::string message_str;
-    zmq::message_t message;
+    TelemetryClient client;
+
+    // client.AddServer();
+
+    client.Read(Telemetry::Buffers::RESOURCE::RESOURCE_FILESYSTEMS);
 
     while (true) {
       std::cout << "Press Enter: ";
@@ -85,14 +106,12 @@ int main(int argc, char **argv) {
     zmq::message_t reply;
     std::string reply_str;
 
-    nlohmann::json reply_json;
-
     while (true) {
       receiver.recv(&reply);
 
-        auto response = Telemetry::Buffers::GetResponse(reply.data());
+      auto response = Telemetry::Buffers::GetResponse(reply.data());
 
-        std::cout << response->filesystems()->begin()->label()->c_str();
+      std::cout << response->filesystems()->begin()->label()->c_str();
 
       std::cout << "Received some replies from the server!!!\n";
     }
