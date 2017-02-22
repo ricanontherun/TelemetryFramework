@@ -16,9 +16,10 @@ include_directories(
         ${COMMON_PATH}/vendor
         ${COMMON_PATH}/include
         ${COMMON_PATH}/libs/flatbuffers/include
+        .
 )
 
-set(SRC main.cpp)
+set(SRC main.cpp server.cpp serialize.cpp zmq_functions.cpp)
 
 link_directories(
         libs/Telemetry/build
