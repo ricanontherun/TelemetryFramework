@@ -8,6 +8,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
 set(COMMON_PATH ../common)
 
 include_directories(
+    .
     include
     ${COMMON_PATH}
     ${COMMON_PATH}/vendor
@@ -18,7 +19,7 @@ include_directories(
 set(
     SRC
     main.cpp
-    src/networking.cpp
+    client.cpp
     ${COMMON_PATH}/zmq_functions.cpp
 )
 
