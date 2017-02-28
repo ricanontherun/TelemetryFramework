@@ -4,6 +4,8 @@
 #include <zmq.hpp>
 #include <zmq_functions.h>
 #include <telemetry.h>
+#include <vector>
+#include <thread>
 
 namespace Networking
 {
@@ -32,20 +34,26 @@ class Reply
 class Server
 {
   public:
-    Server();
+    Server(int port);
 
     bool Init();
 
-    void WaitForClient(Request & request);
+    void WorkerThread();
 
     bool HandleRequest(const Request & request, Reply & reply);
 
-    bool SendReply(Reply & reply);
-  private:
-    zmq::context_t context;
-    zmq::socket_t request_socket;
-    zmq::socket_t reply_socket;
+    void Accept();
 
+  private:
+    int port;
+
+    zmq::context_t context;
+
+    zmq::socket_t client_socket;
+    zmq::socket_t worker_socket;
+
+    std::size_t num_threads;
+    std::vector<std::thread> workers_threads;
 
     Telemetry::Unit unit;
 };

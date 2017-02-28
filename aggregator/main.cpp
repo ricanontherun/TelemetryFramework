@@ -10,11 +10,6 @@
 #include <response_generated.h>
 
 int main(int argc, char **argv) {
-  Networking::Client client;
-
-  client.Read(2);
-
-  return 1;
   std::vector<std::string> addresses;
 
   addresses.push_back("tcp://localhost:5555");
@@ -63,9 +58,10 @@ int main(int argc, char **argv) {
     while (true) {
       receiver.recv(&reply);
 
-      auto response = Telemetry::Buffers::GetResponse(reply.data());
-
-      std::cout << "Filesystem Label " << response->filesystems()->begin()->label()->c_str() << "\n";
+      std::cout << "Received reply!!\n";
+//      auto response = Telemetry::Buffers::GetResponse(reply.data());
+//
+//      std::cout << "Filesystem Label " << response->filesystems()->begin()->label()->c_str() << "\n";
     }
   });
 

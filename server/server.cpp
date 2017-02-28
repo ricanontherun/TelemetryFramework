@@ -9,19 +9,26 @@
 #include <usage_generated.h>
 
 #include <cstdint>
+#include <unistd.h>
 
 namespace Networking
 {
 
-Server::Server()
-: context(1), request_socket(context, ZMQ_PULL), reply_socket(context, ZMQ_PUSH), unit(Telemetry::Unit())
+Server::Server(int port)
+: port(port),
+  context(1),
+  client_socket(context, ZMQ_ROUTER),
+  worker_socket(context, ZMQ_DEALER),
+  unit(Telemetry::Unit()),
+  num_threads(std::thread::hardware_concurrency())
 {};
 
 bool Server::Init()
 {
   try {
-    this->request_socket.bind("tcp://*:5555");
-    this->reply_socket.bind("tcp://*:5556");
+    // Use configured port.
+    this->client_socket.bind("tcp://*:5555");
+    this->worker_socket.bind("inproc://workers");
 
     return true;
   } catch ( zmq::error_t & e ) {
@@ -31,9 +38,29 @@ bool Server::Init()
   }
 }
 
-void Server::WaitForClient(Request & request)
+void Server::WorkerThread()
 {
-  this->request_socket.recv(&(request.request));
+  // Create a vanilla rep socket
+  zmq::socket_t socket(this->context, ZMQ_REP);
+
+  socket.connect("inproc://workers");
+
+  zmq::message_t request;
+  zmq::message_t reply;
+
+  std::string reply_string = "Roman!!";
+
+  std::cout << "Waiting for client\n";
+
+  while (true) {
+    socket.recv(&request);
+
+    std::cout << std::this_thread::get_id() << "\n";
+
+    ZMQFunctions::pack(reply, (void *) reply_string.c_str(), reply_string.length());
+
+    socket.send(reply);
+  }
 }
 
 bool Server::HandleRequest(const Request & request, Reply & reply)
@@ -65,11 +92,17 @@ bool Server::HandleRequest(const Request & request, Reply & reply)
   return true;
 }
 
-bool Server::SendReply(Reply & reply)
+void Server::Accept()
 {
-  this->reply_socket.send(reply.reply);
+  this->workers_threads.reserve(this->num_threads);
 
-  return true;
+  for ( std::uint8_t i = 0; i < this->num_threads; ++i ) {
+    this->workers_threads.push_back(
+        std::thread(&Server::WorkerThread, this)
+    );
+  }
+
+  zmq::proxy(this->client_socket, this->worker_socket, NULL);
 }
 
 }

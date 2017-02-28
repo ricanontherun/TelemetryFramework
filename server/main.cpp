@@ -5,20 +5,14 @@
 #include <server.h>
 
 int main() {
-  Networking::Server server;
+  Networking::Server server(5555);
 
+  // Initialize the server.
   server.Init();
 
-  Networking::Request request;
-  Networking::Reply reply;
+  // Start accepting client requests.
+  server.Accept();
 
-  while (true) {
-    server.WaitForClient(request);
-
-    // Next we need to parse out the request command and the arguments and all that.
-    server.HandleRequest(request, reply);
-
-    server.SendReply(reply);
-  }
+  return 0;
 }
 
