@@ -14,20 +14,19 @@
 namespace Networking
 {
 
-Server::Server(int port)
-: port(port),
-  context(1),
+Server::Server()
+: context(1),
   client_socket(context, ZMQ_ROUTER),
   worker_socket(context, ZMQ_DEALER),
-  unit(Telemetry::Unit()),
   num_threads(std::thread::hardware_concurrency())
 {};
 
-bool Server::Init()
+bool Server::Init(const Options & options)
 {
   try {
-    // Use configured port.
-    this->client_socket.bind("tcp://*:5555");
+    std::string server_address = "tcp://*:" + std::to_string(options.port);
+
+    this->client_socket.bind(server_address);
     this->worker_socket.bind("inproc://workers");
 
     return true;
@@ -40,7 +39,6 @@ bool Server::Init()
 
 void Server::WorkerThread()
 {
-  // Create a vanilla rep socket
   zmq::socket_t socket(this->context, ZMQ_REP);
 
   socket.connect("inproc://workers");
@@ -48,34 +46,35 @@ void Server::WorkerThread()
   zmq::message_t request;
   zmq::message_t reply;
 
-  std::string reply_string = "Roman!!";
-
-  std::cout << "Waiting for client\n";
-
   while (true) {
     socket.recv(&request);
 
-    std::cout << std::this_thread::get_id() << "\n";
-
-    ZMQFunctions::pack(reply, (void *) reply_string.c_str(), reply_string.length());
+    this->HandleRequest(request, reply);
 
     socket.send(reply);
   }
 }
 
-bool Server::HandleRequest(const Request & request, Reply & reply)
+bool Server::HandleRequest(const zmq::message_t & request, zmq::message_t & reply)
 {
   // Unpack the buffer
   std::uint8_t *buffer;
   std::size_t buffer_length;
-  ZMQFunctions::extract(request.request, (void **)(&buffer), buffer_length);
+  ZMQFunctions::extract(request, (void **)(&buffer), buffer_length);
 
-  flatbuffers::Verifier verifer(buffer, buffer_length);
-  bool ok = Telemetry::Buffers::VerifyRequestBuffer(verifer);
+  if ( !this->ValidateRequestBuffer(buffer, buffer_length) ) {
+    // this->BuildErrorReply();
+    return false;
+  }
 
-  std::cout << "Is the buffer a valid request buffer?: " << buffer_length << "\n";
+  auto client_request = Telemetry::Buffers::GetRequest(buffer);
+
+  std::cout << client_request->procedure_type() << "\n";
+  // If it's not a valid buffer, return an error with an approprirate string.
+  std::cout << "Request is valid\n";
 
   Telemetry::Results results;
+  Telemetry::Unit unit;
 
   Telemetry::Options options;
   options.resources = Telemetry::Resource::FILESYSTEMS;
@@ -87,9 +86,19 @@ bool Server::HandleRequest(const Request & request, Reply & reply)
   // TODO: Error checking
   Application::SerializeResults(results, builder);
 
-  ZMQFunctions::pack(reply.reply, (void *) builder.GetBufferPointer(), builder.GetSize());
+  ZMQFunctions::pack(reply, (void *) builder.GetBufferPointer(), builder.GetSize());
 
   return true;
+}
+
+bool Server::ValidateRequestBuffer(
+    std::uint8_t * buffer_pointer,
+    const std::size_t & buffer_length
+) const
+{
+  flatbuffers::Verifier verifer(buffer_pointer, buffer_length);
+
+  return Telemetry::Buffers::VerifyRequestBuffer(verifer);
 }
 
 void Server::Accept()

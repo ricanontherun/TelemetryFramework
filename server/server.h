@@ -10,6 +10,15 @@
 namespace Networking
 {
 
+struct Options
+{
+  int port;
+
+  Options()
+  : port(32456)
+  {}
+};
+
 class Request
 {
   friend class Server;
@@ -34,28 +43,33 @@ class Reply
 class Server
 {
   public:
-    Server(int port);
+    Server();
 
-    bool Init();
+    bool Init(const Options & options);
 
     void WorkerThread();
 
-    bool HandleRequest(const Request & request, Reply & reply);
+    bool HandleRequest(const zmq::message_t & request, zmq::message_t & reply);
 
     void Accept();
 
   private:
-    int port;
-
     zmq::context_t context;
 
+    // The socket clients connect to.
     zmq::socket_t client_socket;
+
+    // The socket which queues the client request for processing
+    // in the worker threads.
     zmq::socket_t worker_socket;
 
     std::size_t num_threads;
     std::vector<std::thread> workers_threads;
 
-    Telemetry::Unit unit;
+    bool ValidateRequestBuffer(
+        std::uint8_t * buffer_pointer,
+        const std::size_t & buffer_length
+    ) const;
 };
 
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5.1)
-project(aggregator)
+project(client)
 
 set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} --std=c++14)
@@ -25,8 +25,8 @@ set(
 
 FIND_LIBRARY(ZMQ_LIB zmq)
 
-add_executable(aggregator ${SRC})
+add_executable(client ${SRC})
 
 # Ventilator Build
-target_link_libraries(aggregator ${ZMQ_LIB})
-target_link_libraries(aggregator pthread)
+target_link_libraries(client ${ZMQ_LIB})
+target_link_libraries(client pthread)

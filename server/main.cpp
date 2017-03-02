@@ -4,11 +4,15 @@
 
 #include <server.h>
 
-int main() {
-  Networking::Server server(5555);
+int main(int argc, char **argv) {
+  Networking::Options options;
+
+  options.port = 5555;
+
+  Networking::Server server;
 
   // Initialize the server.
-  server.Init();
+  server.Init(options);
 
   // Start accepting client requests.
   server.Accept();
