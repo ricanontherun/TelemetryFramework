@@ -3,10 +3,6 @@
 #include <telemetry.h>
 #include <serialize.h>
 #include <flatbuffers/flatbuffers.h>
-#include <request_generated.h>
-#include <response_generated.h>
-#include <filesystem_generated.h>
-#include <usage_generated.h>
 
 #include <cstdint>
 #include <unistd.h>
@@ -57,38 +53,57 @@ void Server::WorkerThread()
 
 bool Server::HandleRequest(const zmq::message_t & request, zmq::message_t & reply)
 {
-  // Unpack the buffer
   std::uint8_t *buffer;
   std::size_t buffer_length;
+
+  // Extract the buffer from the message.
   ZMQFunctions::extract(request, (void **)(&buffer), buffer_length);
 
+  // Validate the request. We want to make sure it's a valid request.
   if ( !this->ValidateRequestBuffer(buffer, buffer_length) ) {
     // this->BuildErrorReply();
     return false;
   }
 
+  // Construct a request object from the buffer.
   auto client_request = Telemetry::Buffers::GetRequest(buffer);
 
-  std::cout << client_request->procedure_type() << "\n";
-  // If it's not a valid buffer, return an error with an approprirate string.
-  std::cout << "Request is valid\n";
+  switch ( client_request->procedure_type() ) {
+    case 0:
+      break;
+    case Telemetry::Buffers::Procedure_ReadProcedure:
+      auto procedure = static_cast<const Telemetry::Buffers::ReadProcedure *>(
+          client_request->procedure()
+      );
 
+      this->DoReadProcedure(procedure, reply);
+
+      break;
+  }
+
+  return true;
+
+}
+
+void Server::DoReadProcedure(
+  const Telemetry::Buffers::ReadProcedure * procedure,
+  zmq::message_t & reply
+)
+const
+{
   Telemetry::Results results;
   Telemetry::Unit unit;
-
   Telemetry::Options options;
-  options.resources = Telemetry::Resource::FILESYSTEMS;
+
+  options.resources = procedure->Resource();
 
   unit.Read(options, results);
 
+  // Serialize the results into a response object.
   flatbuffers::FlatBufferBuilder builder(1024);
-
-  // TODO: Error checking
   Application::SerializeResults(results, builder);
 
   ZMQFunctions::pack(reply, (void *) builder.GetBufferPointer(), builder.GetSize());
-
-  return true;
 }
 
 bool Server::ValidateRequestBuffer(

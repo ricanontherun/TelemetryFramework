@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
   // Create procedure union
   auto procedure = Telemetry::Buffers::CreateReadProcedure(
       builder,
-      static_cast<Telemetry::Buffers::RESOURCE>(0)
+      Telemetry::Buffers::RESOURCE_MEMORY
   );
 
   // Create the main request object

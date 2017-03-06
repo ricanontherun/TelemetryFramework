@@ -4,6 +4,11 @@
 #include <zmq.hpp>
 #include <zmq_functions.h>
 #include <telemetry.h>
+#include <request_generated.h>
+#include <response_generated.h>
+#include <filesystem_generated.h>
+#include <usage_generated.h>
+
 #include <vector>
 #include <thread>
 
@@ -70,6 +75,12 @@ class Server
         std::uint8_t * buffer_pointer,
         const std::size_t & buffer_length
     ) const;
+
+    void DoReadProcedure(
+        const Telemetry::Buffers::ReadProcedure * procedure,
+        zmq::message_t & reply
+    )
+    const;
 };
 
 }
