@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <request_generated.h>
+#include <response_generated.h>
 
 int main(int argc, char **argv) {
   zmq::context_t context(1);
@@ -46,7 +47,20 @@ int main(int argc, char **argv) {
   socket.send(request);
   socket.recv(&reply);
 
-  std::cout << "Received reply\n";
+  std::uint8_t * buffer_pointer;
+  std::size_t buffer_length;
+  ZMQFunctions::extract(reply, (void **) (&buffer_pointer), buffer_length);
+
+  flatbuffers::Verifier verifer(buffer_pointer, buffer_length);
+  auto valid_Response = Telemetry::Buffers::VerifyResponseBuffer(verifer);
+
+  if ( valid_Response ) {
+    auto response = Telemetry::Buffers::GetResponse(buffer_pointer);
+    std::cout << response->success() << "\n";
+  }
+
+  free(buffer_pointer);
+
 
   return 0;
 }

@@ -11,8 +11,6 @@ namespace Application {
 
 void SerializeResults(const Telemetry::Results & results, flatbuffers::FlatBufferBuilder & builder)
 {
-  // flatbuffers must be constructed using a depth first approach.
-
   // vector of filesystem structs.
   std::vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>> filesystems;
 
@@ -49,17 +47,23 @@ void SerializeResults(const Telemetry::Results & results, flatbuffers::FlatBuffe
     filesystems.push_back(filesystem);
   }
 
-  // Serialize the std::vector into a flatbuffers vector.
+  auto string = builder.CreateString("");
   auto flatbuffer_filesystems = builder.CreateVector(filesystems);
 
+  // Create the union with the read response data.
+  Telemetry::Buffers::ReadResponseBuilder read_response_builder(builder);
+  read_response_builder.add_filesystems(flatbuffer_filesystems);
+  auto read_response = read_response_builder.Finish();
+
+  // Create the root response object.
   Telemetry::Buffers::ResponseBuilder response_builder(builder);
 
-  // Add the filesystems, memory, processes etc.
-  response_builder.add_filesystems(flatbuffer_filesystems);
+  response_builder.add_data_type(Telemetry::Buffers::ResponseData_ReadResponse);
+  response_builder.add_data(read_response.Union());
+  response_builder.add_success(true);
+  response_builder.add_message(string);
 
   auto response = response_builder.Finish();
-
-  // Wrap that builder up.
   builder.Finish(response);
 }
 

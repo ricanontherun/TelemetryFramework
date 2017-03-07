@@ -76,16 +76,15 @@ bool Server::HandleRequest(const zmq::message_t & request, zmq::message_t & repl
           client_request->procedure()
       );
 
-      this->DoReadProcedure(procedure, reply);
+      this->PerformRead(procedure, reply);
 
       break;
   }
 
   return true;
-
 }
 
-void Server::DoReadProcedure(
+void Server::PerformRead(
   const Telemetry::Buffers::ReadProcedure * procedure,
   zmq::message_t & reply
 )
@@ -103,6 +102,7 @@ const
   flatbuffers::FlatBufferBuilder builder(1024);
   Application::SerializeResults(results, builder);
 
+  // Pack the response into the reply message.
   ZMQFunctions::pack(reply, (void *) builder.GetBufferPointer(), builder.GetSize());
 }
 

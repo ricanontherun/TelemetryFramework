@@ -90,7 +90,7 @@ inline flatbuffers::Offset<Filesystem> CreateFilesystemDirect(
     const Telemetry::Buffers::Usage *size = 0,
     const Telemetry::Buffers::Usage *used = 0,
     const Telemetry::Buffers::Usage *free = 0) {
-  return Telemetry::Buffers::CreateFilesystem(
+  return CreateFilesystem(
       _fbb,
       label ? _fbb.CreateString(label) : 0,
       size,

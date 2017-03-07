@@ -76,7 +76,7 @@ class Server
         const std::size_t & buffer_length
     ) const;
 
-    void DoReadProcedure(
+    void PerformRead(
         const Telemetry::Buffers::ReadProcedure * procedure,
         zmq::message_t & reply
     )

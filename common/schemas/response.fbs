@@ -1,12 +1,17 @@
-include "filesystem.fbs";
-include "memory.fbs";
+include "read_response.fbs";
 
 namespace Telemetry.Buffers;
 
+union ResponseData
+{
+  ReadResponse
+}
+
 table Response
 {
-    filesystems:[Filesystem];
-    memory:Memory;
+  success:bool = true;
+  message:string;
+  data:ResponseData;
 }
 
 root_type Response;

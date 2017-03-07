@@ -8,6 +8,7 @@
 
 #include "filesystem_generated.h"
 #include "memory_generated.h"
+#include "read_response_generated.h"
 #include "usage_generated.h"
 
 namespace Telemetry {
@@ -15,24 +16,65 @@ namespace Buffers {
 
 struct Response;
 
+enum ResponseData {
+  ResponseData_NONE = 0,
+  ResponseData_ReadResponse = 1,
+  ResponseData_MIN = ResponseData_NONE,
+  ResponseData_MAX = ResponseData_ReadResponse
+};
+
+inline const char **EnumNamesResponseData() {
+  static const char *names[] = {
+    "NONE",
+    "ReadResponse",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameResponseData(ResponseData e) {
+  const size_t index = static_cast<int>(e);
+  return EnumNamesResponseData()[index];
+}
+
+template<typename T> struct ResponseDataTraits {
+  static const ResponseData enum_value = ResponseData_NONE;
+};
+
+template<> struct ResponseDataTraits<Telemetry::Buffers::ReadResponse> {
+  static const ResponseData enum_value = ResponseData_ReadResponse;
+};
+
+bool VerifyResponseData(flatbuffers::Verifier &verifier, const void *obj, ResponseData type);
+bool VerifyResponseDataVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+
 struct Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum {
-    VT_FILESYSTEMS = 4,
-    VT_MEMORY = 6
+    VT_SUCCESS = 4,
+    VT_MESSAGE = 6,
+    VT_DATA_TYPE = 8,
+    VT_DATA = 10
   };
-  const flatbuffers::Vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>> *filesystems() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>> *>(VT_FILESYSTEMS);
+  bool success() const {
+    return GetField<uint8_t>(VT_SUCCESS, 0) != 0;
   }
-  const Telemetry::Buffers::Memory *memory() const {
-    return GetPointer<const Telemetry::Buffers::Memory *>(VT_MEMORY);
+  const flatbuffers::String *message() const {
+    return GetPointer<const flatbuffers::String *>(VT_MESSAGE);
+  }
+  ResponseData data_type() const {
+    return static_cast<ResponseData>(GetField<uint8_t>(VT_DATA_TYPE, 0));
+  }
+  const void *data() const {
+    return GetPointer<const void *>(VT_DATA);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<flatbuffers::uoffset_t>(verifier, VT_FILESYSTEMS) &&
-           verifier.Verify(filesystems()) &&
-           verifier.VerifyVectorOfTables(filesystems()) &&
-           VerifyField<flatbuffers::uoffset_t>(verifier, VT_MEMORY) &&
-           verifier.VerifyTable(memory()) &&
+           VerifyField<uint8_t>(verifier, VT_SUCCESS) &&
+           VerifyField<flatbuffers::uoffset_t>(verifier, VT_MESSAGE) &&
+           verifier.Verify(message()) &&
+           VerifyField<uint8_t>(verifier, VT_DATA_TYPE) &&
+           VerifyField<flatbuffers::uoffset_t>(verifier, VT_DATA) &&
+           VerifyResponseData(verifier, data(), data_type()) &&
            verifier.EndTable();
   }
 };
@@ -40,11 +82,17 @@ struct Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct ResponseBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_filesystems(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>>> filesystems) {
-    fbb_.AddOffset(Response::VT_FILESYSTEMS, filesystems);
+  void add_success(bool success) {
+    fbb_.AddElement<uint8_t>(Response::VT_SUCCESS, static_cast<uint8_t>(success), 0);
   }
-  void add_memory(flatbuffers::Offset<Telemetry::Buffers::Memory> memory) {
-    fbb_.AddOffset(Response::VT_MEMORY, memory);
+  void add_message(flatbuffers::Offset<flatbuffers::String> message) {
+    fbb_.AddOffset(Response::VT_MESSAGE, message);
+  }
+  void add_data_type(ResponseData data_type) {
+    fbb_.AddElement<uint8_t>(Response::VT_DATA_TYPE, static_cast<uint8_t>(data_type), 0);
+  }
+  void add_data(flatbuffers::Offset<void> data) {
+    fbb_.AddOffset(Response::VT_DATA, data);
   }
   ResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -52,7 +100,7 @@ struct ResponseBuilder {
   }
   ResponseBuilder &operator=(const ResponseBuilder &);
   flatbuffers::Offset<Response> Finish() {
-    const auto end = fbb_.EndTable(start_, 2);
+    const auto end = fbb_.EndTable(start_, 4);
     auto o = flatbuffers::Offset<Response>(end);
     return o;
   }
@@ -60,22 +108,54 @@ struct ResponseBuilder {
 
 inline flatbuffers::Offset<Response> CreateResponse(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>>> filesystems = 0,
-    flatbuffers::Offset<Telemetry::Buffers::Memory> memory = 0) {
+    bool success = false,
+    flatbuffers::Offset<flatbuffers::String> message = 0,
+    ResponseData data_type = ResponseData_NONE,
+    flatbuffers::Offset<void> data = 0) {
   ResponseBuilder builder_(_fbb);
-  builder_.add_memory(memory);
-  builder_.add_filesystems(filesystems);
+  builder_.add_data(data);
+  builder_.add_message(message);
+  builder_.add_data_type(data_type);
+  builder_.add_success(success);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Response> CreateResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>> *filesystems = nullptr,
-    flatbuffers::Offset<Telemetry::Buffers::Memory> memory = 0) {
-  return Telemetry::Buffers::CreateResponse(
+    bool success = false,
+    const char *message = nullptr,
+    ResponseData data_type = ResponseData_NONE,
+    flatbuffers::Offset<void> data = 0) {
+  return CreateResponse(
       _fbb,
-      filesystems ? _fbb.CreateVector<flatbuffers::Offset<Telemetry::Buffers::Filesystem>>(*filesystems) : 0,
-      memory);
+      success,
+      message ? _fbb.CreateString(message) : 0,
+      data_type,
+      data);
+}
+
+inline bool VerifyResponseData(flatbuffers::Verifier &verifier, const void *obj, ResponseData type) {
+  switch (type) {
+    case ResponseData_NONE: {
+      return true;
+    }
+    case ResponseData_ReadResponse: {
+      auto ptr = reinterpret_cast<const Telemetry::Buffers::ReadResponse *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return false;
+  }
+}
+
+inline bool VerifyResponseDataVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+  if (values->size() != types->size()) return false;
+  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifyResponseData(
+        verifier,  values->Get(i), types->GetEnum<ResponseData>(i))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 inline const Telemetry::Buffers::Response *GetResponse(const void *buf) {
