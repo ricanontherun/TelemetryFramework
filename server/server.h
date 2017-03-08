@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <thread>
+#include <cstdlib>
 
 namespace Networking
 {
@@ -22,27 +23,6 @@ struct Options
   Options()
   : port(32456)
   {}
-};
-
-class Request
-{
-  friend class Server;
-
-  private:
-    zmq::message_t request;
-
-  public:
-    Request() {}
-};
-
-class Reply
-{
-  friend class Server;
-
-  private:
-    zmq::message_t reply;
-  public:
-    Reply() {};
 };
 
 class Server
@@ -72,7 +52,7 @@ class Server
     std::vector<std::thread> workers_threads;
 
     bool ValidateRequestBuffer(
-        std::uint8_t * buffer_pointer,
+        const std::uint8_t * buffer_pointer,
         const std::size_t & buffer_length
     ) const;
 

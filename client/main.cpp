@@ -47,20 +47,16 @@ int main(int argc, char **argv) {
   socket.send(request);
   socket.recv(&reply);
 
-  std::uint8_t * buffer_pointer;
-  std::size_t buffer_length;
-  ZMQFunctions::extract(reply, (void **) (&buffer_pointer), buffer_length);
-
-  flatbuffers::Verifier verifer(buffer_pointer, buffer_length);
+  flatbuffers::Verifier verifer((std::uint8_t * )reply.data(), reply.size());
   auto valid_Response = Telemetry::Buffers::VerifyResponseBuffer(verifer);
 
   if ( valid_Response ) {
-    auto response = Telemetry::Buffers::GetResponse(buffer_pointer);
-    std::cout << response->success() << "\n";
+    auto response = Telemetry::Buffers::GetResponse((std::uint8_t *) reply.data());
+
+    auto read = static_cast<const Telemetry::Buffers::ReadResponse *>(response->data());
+
+    std::cout << read->filesystems()->Get(1)->label()->c_str() << "\n";
   }
-
-  free(buffer_pointer);
-
 
   return 0;
 }

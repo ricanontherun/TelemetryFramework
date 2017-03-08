@@ -53,20 +53,12 @@ void Server::WorkerThread()
 
 bool Server::HandleRequest(const zmq::message_t & request, zmq::message_t & reply)
 {
-  std::uint8_t *buffer;
-  std::size_t buffer_length;
-
-  // Extract the buffer from the message.
-  ZMQFunctions::extract(request, (void **)(&buffer), buffer_length);
-
-  // Validate the request. We want to make sure it's a valid request.
-  if ( !this->ValidateRequestBuffer(buffer, buffer_length) ) {
+  if ( !this->ValidateRequestBuffer((std::uint8_t * )request.data(), request.size()) ) {
     // this->BuildErrorReply();
     return false;
   }
 
-  // Construct a request object from the buffer.
-  auto client_request = Telemetry::Buffers::GetRequest(buffer);
+  auto client_request = Telemetry::Buffers::GetRequest((std::uint8_t *)request.data());
 
   switch ( client_request->procedure_type() ) {
     case 0:
@@ -107,7 +99,7 @@ const
 }
 
 bool Server::ValidateRequestBuffer(
-    std::uint8_t * buffer_pointer,
+    const std::uint8_t * buffer_pointer,
     const std::size_t & buffer_length
 ) const
 {

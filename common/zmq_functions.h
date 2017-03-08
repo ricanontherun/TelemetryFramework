@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <string>
+#include <iostream>
 
 namespace zmq {
   class message_t;
